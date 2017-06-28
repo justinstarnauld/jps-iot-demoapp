@@ -1,5 +1,7 @@
 'use strict';
 $(document).ready(() => {
+    // Create object to store map data
+    let mapData = {};
 
     // Get input data from form
     $('#searchButton').on('click', (event) => {
@@ -25,6 +27,11 @@ $(document).ready(() => {
                 } else {
                     // Handle response with valid data for a single query
                     let dweetData = dweet[0];
+
+                    mapData.thingName = dweetData.thing;
+                    mapData.mapLat = dweetData.content.Latitude || dweetData.content.latitude;
+                    mapData.mapLong = dweetData.content.Longitude || dweetData.content.longitude;
+
                     let dweetParsedJson = JSON.stringify(dweetData, null, 4);
                     // Create our HTML template components
                     let deviceDataTemplate = 
@@ -39,6 +46,15 @@ $(document).ready(() => {
                     `
                     // Append updated template
                     $('#deviceContent').html('').append(deviceDataTemplate);
+
+                    // Check to see if lat/long is legit
+                    if (mapData.mapLat) {
+                        $('#showMapButton').removeClass('hide-map-button disabled');
+                    } else {
+                        $('#showMapButton').addClass('disabled');
+                        $('#showMapButton').removeClass('hide-map-button');
+                        $('#mapContent').addClass('hide-map-content');
+                    }
                 }
             });
             // Get web socket data from form submit
@@ -53,5 +69,65 @@ $(document).ready(() => {
         }
         searchDeviceInput.val('');
     });
+
+    // Displaya ths map on click event
+    $('#showMapButton').on('click', (event) => {
+        event.preventDefault();
+
+        // Create template to render map
+        let mapContainerTemplate = 
+        `
+            <div class="card">
+                <div class="card-block">
+                    <div id="map"></div>
+                </div>
+            </div>
+        `
+
+        // Make sure nothing happens on an existing disabled button state
+        if (!$('#showMapButton').hasClass('disabled')) {
+            // If button is active - set it to disabled when clicked
+            $('#showMapButton').addClass('disabled');
+            // Remove the display: none style for the map content
+            $('#mapContent').removeClass('hide-map-content');
+            // Append the map template div
+            $('#mapContent').html('').append(mapContainerTemplate);
+            // Show map
+            new MapQuestCard(mapData.thingName, mapData.mapLat, mapData.mapLong).buildMap();
+        }
+    });
+
+
+        // Build map class
+    class MapQuestCard {
+        constructor(name, lat, long) {
+            this.name = name;
+            this.lat = lat;
+            this.long = long;
+        }
+
+        buildMap() {
+            let mapLayer = MQ.mapLayer(), map;
+
+            this.map = L.map('map', {
+                layers: mapLayer,
+                center: [this.lat, this.long],
+                zoom: 12
+            });
+
+            L.control.layers({
+            'Map': mapLayer,
+            'Hybrid': MQ.hybridLayer(),
+            'Satellite': MQ.satelliteLayer(),
+            'Dark': MQ.darkLayer(),
+            'Light': MQ.lightLayer()
+            }).addTo(this.map);
+
+            let marker = L.marker([this.lat, this.long]).addTo(this.map);
+            marker.bindPopup(this.name);
+        }
+    }
+
+
 
 });
